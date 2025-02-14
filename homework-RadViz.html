@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Radviz</title>
+    <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+</head>
+
+<body>
+    <svg></svg>
+</body>
+<script>
+    const size = 1000; // size of the SVG, you can change it according to your device
+    const radius = size * 0.3; // radius of the RadViz space, you can customize it accordingly
+
+    // set up size for SVG
+    // create a container <g> as the root of the SVG
+    // move the container to the center to initialize the RadViz space origin
+    const svg = d3.select('svg')
+        .attr('width', size)
+        .attr('height', size)
+        .append('g')
+        .attr('transform', `translate(${size / 2}, ${size / 2})`);
+
+    // set up color scale for varieties (refer to: https://d3js.org/d3-scale-chromatic)
+    const color = d3.scaleOrdinal(d3.schemeAccent);
+
+    // create the big circle - the RadViz space
+    svg.append('circle')
+        .attr('r', radius)
+        .attr('fill', 'none')
+        .attr('stroke', 'black');
+
+    // load data
+    d3.csv('https://raw.githubusercontent.com/fengtinghao/CS3435/refs/heads/main/Sample%20Data/iris.csv')
+        .then(data => {
+            // from raw data, extract the dimension columns
+            const arrDimension = data.columns.slice(1, 5);
+
+
+            // create a scale to map values to [0, 1] for each dimension
+            // to use it, you can call objDimScale[dimension](value)
+            const objDimScale = arrDimension.reduce((acc, crr) => ({
+                ...acc, // spread operator
+                [crr]: d3.scaleLinear().domain(d3.extent(data, d => +d[crr])).range([0, 1]) // create a scale for each dimension
+            }), {});
+             
+            
+            const scaleAnchors = d3.scaleBand()
+                .domain(arrDimension)
+                .range([-Math.PI / 4, Math.PI * 7 / 4]);
+
+            //create a container <g> for each anchor, move it to the RadViz space circumference, and rotate it to the corresponding angle
+            const anchors = svg.selectAll('.anchor')
+                .data(arrDimension)
+                .join('g')
+                .attr('class', 'anchor')
+                .attr('transform', d => `rotate(${scaleAnchors(d) * 180 / Math.PI}) translate(${radius}, 0)`);
+            
+            // under each anchor, create a line and a text to show the dimension name
+            anchors.append('line')
+                .attr('x2', radius / 10)
+                .attr('stroke', 'black')
+                .attr('stroke-width', 5);
+            anchors.append('text')
+                .attr('x', (d, i) => i > 1 ? -radius / 10 - 10 : radius / 10 + 10)
+                .attr('dy', '0.35em')
+                .attr('transform', (d, i) => i > 1 ? 'scale(-1)' : '')
+                .attr('text-anchor', (d, i) => i > 1 ? 'end' : 'start')
+                .text(d => d);
+
+            // render radviz points
+            svg.append('g')
+                .selectAll('circle')
+                .data(data)
+                .join('circle')
+                .attr('r', 5)
+                .attr('fill', d => color(d.variety))
+                .attr('fill-opacity', 0.7)
+                .attr('cx', d => {
+                    let normValues = arrDimension.map(dim => objDimScale[dim](+d[dim]));
+                    let sumNorm = d3.sum(normValues);
+                    return d3.sum(arrDimension.map(dim => normValues[arrDimension.indexOf(dim)] * radius * Math.cos(scaleAnchors(dim)))) / sumNorm;
+                })
+                .attr('cy', d => {
+                    let normValues = arrDimension.map(dim => objDimScale[dim](+d[dim]));
+                    let sumNorm = d3.sum(normValues);
+                    return d3.sum(arrDimension.map(dim => normValues[arrDimension.indexOf(dim)] * radius * Math.sin(scaleAnchors(dim)))) / sumNorm;
+                })
+                //tooltip
+                .on('mouseover', (event, d) => {
+                    svg.append('text')
+                        .attr('class', 'tooltip')
+                        .attr('x', d3.pointer(event)[0])
+                        .attr('y', d3.pointer(event)[1])
+                        .attr('text-anchor', 'middle')
+                        .attr('dy', -10)
+                        .text(`${d.variety} - ${arrDimension.map(e => `${e}:${d[e]}`).join(', ')}`);
+                })
+                .on('mouseout', () => {
+                    svg.selectAll('.tooltip').remove();
+                });
+        });
+</script>
+
+</html>

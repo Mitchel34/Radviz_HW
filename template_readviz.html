@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Radviz</title>
+    <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+</head>
+
+<body>
+    <svg></svg>
+</body>
+<script>
+    const size = 1000;  // size of the SVG, you can change it according to your device
+    const radius = size * 0.3;  // radius of the RadViz space, you can customize it accordingly
+
+    // set up size for SVG
+    // create a container <g> as the root of the SVG
+    // move the container to the center to initialize the RadViz space origin
+    const svg = d3.select('svg')
+        .attr('width', size)
+        .attr('height', size)
+        .append('g')
+        .attr('transform', `translate(${size / 2}, ${size / 2})`);
+
+    // set up color scale for varieties (refer to: https://d3js.org/d3-scale-chromatic)
+    const color = d3.scaleOrdinal(d3.schemeAccent);
+
+    // create the big circle - the RadViz space
+    svg.append('circle')
+        .attr('r', radius)
+        .attr('fill', 'none')
+        .attr('stroke', 'black');
+
+    // load data
+    d3.csv('https://raw.githubusercontent.com/fengtinghao/CS3435/refs/heads/main/Sample%20Data/iris.csv')
+        .then(data => {
+            // from raw data, extract the dimension columns
+            const arrDimension = data.columns.slice(1, 5);
+
+            // create a scale to map values to [0, 1] for each dimension
+            // to use it, you can call objDimScale[dimension](value)
+            const objDimScale = arrDimension.reduce((acc, crr) => ({ ...acc, [crr]: d3.scaleLinear().domain(d3.extent(data, d => +d[crr])) }), {});
+
+            /********************************************
+             * Set up anchors                           *
+             ********************************************/
+            
+            // create a scale to map each dimension to an angle on the RadViz space circumference as the anchor
+            // we have four anchors for this example, so I set the range to [-Math.PI/4, Math.PI*7/4], which you can customize
+            // to use it, you can call scaleAnchors(dimension)
+            const scaleAnchors = d3.scaleBand()
+                .domain(arrDimension)
+                .range([-Math.PI / 4, Math.PI * 7 / 4]);
+
+            // create a container <g> for each anchor, move it to the RadViz space circumference, and rotate it to the corresponding angle
+            const anchors = svg.selectAll('.anchor')
+                .data(arrDimension)
+                .join('g')
+                .attr('class', 'anchor')
+                .attr('transform', d => `rotate(${scaleAnchors(d) * 180 / Math.PI}) translate(${radius}, 0)`);
+
+            // under each container, create a line and a text to represent the anchor
+            anchors.append('line')
+                .attr('x2', radius / 10)
+                .attr('stroke', 'black')
+                .attr('stroke-width', 5);
+            anchors.append('text')
+                .attr('x', (d, i) => i > 1 ? -radius / 10 - 10 : radius / 10 + 10)
+                .attr('dy', '0.35em')
+                .attr('transform', (d, i) => i > 1 ? 'scale(-1)' : '')
+                .attr('text-anchor', (d, i) => i > 1 ? 'end' : 'start')
+                .text(d => d);
+
+            /********************************************
+             * Render your RadViz points                *
+             ********************************************/
+            
+            svg.append('g') // create a container <g> to render all points.
+                .selectAll()            // <--------------- complete this line
+                .data(data)
+                .join()                 // <--------------- complete this line
+
+                                                            /****************************************************************
+                                                             * fill code for rendering all points.                          *
+                                                             * calculate position according to RadViz formula.              *
+                                        // <---------------  * you decide the point size.                                   *
+                                                             * use color(variety) to set the color.                         *
+                                                             * set up transparent for filled color for overlaying points.   *
+                                                             ****************************************************************/
+                                        
+                
+                // the following codes are for tooltips
+                .on('mouseover', (event, d) => {
+                    svg.append('text')
+                        .attr('class', 'tooltip')
+                        .attr('x', d3.pointer(event)[0])
+                        .attr('y', d3.pointer(event)[1])
+                        .attr('text-anchor', 'middle')
+                        .attr('dy', -10)
+                        .text(`${d.variety} - ${arrDimension.map(e => `${e}:${d[e]}`).join(', ')}`);
+                })
+                .on('mouseout', (event, d) => {
+                    svg.selectAll('.tooltip').remove();
+                });
+        });
+</script>
+
+</html>
